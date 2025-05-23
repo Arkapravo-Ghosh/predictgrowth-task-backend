@@ -36,6 +36,13 @@ app.use(checkJSON);
 const server = http.createServer(app);
 const port = Number(process.env.PORT) || 8000;
 
+// Module Augmentation for Request
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: Record<string, unknown>;
+  }
+};
+
 // Index Router Import
 import indexRouter from "./indexRouter";
 

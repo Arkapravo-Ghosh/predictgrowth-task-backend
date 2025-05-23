@@ -21,14 +21,14 @@ interface Chat {
 };
 
 // Main chat function
-export const chatWithAI = async (messages: Chat[]): Promise<string> => {
+export const chatWithAI = async (messages: Chat[], systemPrompt?: string): Promise<string> => {
   const pdfBuffer = await fs.readFile(pdfPath);
   const base64PDF = pdfBuffer.toString("base64");
   const contents = [
     {
       role: "user",
       parts: [
-        { text: "The following is a document having an explanation of startup fundraising along with explanations of funding stages, SAFE notes, cap tables, investor expectations, etc. Answer the questions asked based on the document." },
+        { text: systemPrompt || "The following is a document having an explanation of startup fundraising along with explanations of funding stages, SAFE notes, cap tables, investor expectations, etc. Answer the questions asked based on the document." },
         {
           inlineData: {
             mimeType: "application/pdf",

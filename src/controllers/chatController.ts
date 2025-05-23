@@ -6,18 +6,7 @@ import { chatWithAI } from "../utils/chatUtils";
 export const sendMessage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { message } = req.body;
-    const userinfo = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}/userinfo`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${req.headers.authorization?.split(" ")[1]}`,
-      },
-    });
-    const userinfoData = await userinfo.json() as { email: string };
-    const userEmail = userinfoData.email;
-    if (!userEmail || !message) {
-      res.status(400).json({ message: "Missing user or message" });
-      return;
-    };
+    const userEmail = req.user?.email;
     // Find or create user
     let user = await User.findOne({ email: userEmail });
     if (!user) {
@@ -30,13 +19,18 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
     };
     // Add user message to chat history
     chat.messages.push({ role: "user", content: message, timestamp: new Date() });
+    // Prepare system prompt
+    let systemPrompt = "The following is a document having an explanation of startup fundraising along with explanations of funding stages, SAFE notes, cap tables, investor expectations, etc. Answer the questions asked based on the document.";
+    if (user.company_description) {
+      systemPrompt = `The following is a document having an explanation of startup fundraising along with explanations of funding stages, SAFE notes, cap tables, investor expectations, etc. The user's company name is ${user.company} and the user's company description is: ${user.company_description}. Answer the questions asked based on the document and the company description if relevant.`;
+    };
     // Prepare messages for AI (last 10 for context)
     const aiMessages = chat.messages.slice(-10).map(m => ({
       role: m.role,
       parts: [{ text: m.content }],
     }));
     // Get AI response
-    const aiResponse = await chatWithAI(aiMessages);
+    const aiResponse = await chatWithAI(aiMessages, systemPrompt);
     // Add AI response to chat history
     chat.messages.push({ role: "model", content: aiResponse, timestamp: new Date() });
     await chat.save();
@@ -52,14 +46,7 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
 
 export const getChats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const userinfo = await fetch(`${process.env.AUTH0_ISSUER_BASE_URL}/userinfo`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${req.headers.authorization?.split(" ")[1]}`,
-      },
-    });
-    const userinfoData = await userinfo.json() as { email: string };
-    const userEmail = userinfoData.email;
+    const userEmail = req.user?.email;
     if (!userEmail) {
       res.status(400).json({ message: "Missing user" });
       return;
